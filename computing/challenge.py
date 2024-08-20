@@ -1,3 +1,5 @@
+#!/usr/bin/env -S submit -M 2000 -m 2000 -f python
+
 # This script is based on a Jupyter notebook provided by Jim Pivarski
 # You can find it on GitHub: https://github.com/ErUM-Data-Hub/Challenges/blob/computing_challenge/computing/challenge.ipynb
 # The markdown cells have been converted to raw comments
