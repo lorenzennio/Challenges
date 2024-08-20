@@ -1,5 +1,5 @@
 # This script is based on a Jupyter notebook provided by Jim Pivarski
-# You can find it on GitHub:
+# You can find it on GitHub: https://github.com/ErUM-Data-Hub/Challenges/blob/computing_challenge/computing/challenge.ipynb
 # The markdown cells have been converted to raw comments
 # and some of the LaTeX syntax has been removed for readability
 
@@ -9,8 +9,18 @@ import numpy as np
 import numba as nb
 from scipy.stats import beta
 
+from utils import plot_pixels
 
-# Goal: improve the world's best estimate of the area of the Mandelbrot set.
+from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
+import warnings
+
+warnings.simplefilter("ignore", category=NumbaDeprecationWarning)
+warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
+
+
+"""
+Goal: improve the world's best estimate of the area of the Mandelbrot set.
+"""
 
 """
 The Mandelbrot set is a set of c for which
@@ -81,18 +91,19 @@ def draw_mandelbrot(num_x, num_y):
 """
 Generate Mandelbrot set for (1000, 1000) pixel array
 """
-
+print("########################################################")
+print("Generating Mandelbrot set for (1000,1000) pixel array")
+print("########################################################")
 pixels = draw_mandelbrot(1000, 1000)
 
 """
 Plot Mandelbrot pixels
 """
 
-fig, ax = plt.subplots(figsize=(7, 7))
+fig, _, _ = plot_pixels(pixels)
+fig.savefig("pixels.png")
 
-ax.imshow(pixels, extent=[-2, 1, -3 / 2, 3 / 2])
-ax.set_xlabel("x")
-ax.set_ylabel("y")
+print("\tOutput has been saved in `pixels.png`\n")
 
 """
 The exact area of the Mandelbrot set is not known, mathematically. There is an expression,
@@ -149,11 +160,17 @@ ymin, ymax = -3 / 2, 3 / 2
 rng = np.random.default_rng()  # can be forked to run multiple rngs in parallel
 
 denominator = 100000  # how many random numbers to draw
+
+
+print("########################################################")
+print(f"Drawing {denominator} samples inside Knill limits.")
+print("########################################################")
 numerator = count_mandelbrot(rng, denominator, xmin, xmax - xmin, ymin, ymax - ymin)
 
-# ratio of numbers inside Mandelrbrot set times sampling area
+# ratio of numbers inside Mandelbrot set times sampling area
 area = (numerator / denominator) * (xmax - xmin) * (ymax - ymin)
-area
+
+print(f"\tArea of the Mandelbrot set is {area}\n")
 
 
 """
@@ -191,7 +208,12 @@ def confidence_interval(confidence_level, numerator, denominator, area):
 Calculate limits on the sampled area.
 """
 
-confidence_interval(0.05, numerator, denominator, (xmax - xmin) * (ymax - ymin))
+print("########################################################")
+print(f"Calculating Clopper-Pearson confidence interval on sampled area")
+print("########################################################")
+ci = confidence_interval(0.05, numerator, denominator, (xmax - xmin) * (ymax - ymin))
+
+print(f"\tClopper-Pearson confidence interval is {ci}\n")
 
 
 """
@@ -201,6 +223,9 @@ Samples in different geographic regions make wildly different contributions to t
 """
 
 
+print("########################################################")
+print("Calculating uncertainties in three different regions.")
+print("########################################################")
 region1 = {
     "xmin": -1.5,
     "ymin": 0.5,
@@ -238,11 +263,7 @@ for region in [region1, region2, region3]:
 Plot regions.
 """
 
-fig, ax = plt.subplots(figsize=(7, 7))
-
-ax.imshow(pixels, extent=[-2, 1, -3 / 2, 3 / 2])
-ax.set_xlabel("x")
-ax.set_ylabel("y")
+fig, ax, _ = plot_pixels(pixels)
 
 ax.add_patch(
     matplotlib.patches.Rectangle(
@@ -259,6 +280,9 @@ ax.add_patch(
         (-0.4, -0.25), 0.5, 0.5, edgecolor="red", facecolor="none"
     )
 )
+
+fig.savefig("uncertain_patches.png")
+print("\tRegions are plotted in `uncertain_patches.png`\n")
 
 
 """
@@ -319,23 +343,25 @@ def compute_sequentially(rng, numer, denom):
             )
 
 
+print("########################################################")
+print("Compute Mandelbrot area per tile")
+print("########################################################")
 compute_sequentially(rng, numer, denom)
 
 """
 A plot of the result now can have `numer / denom` values between 0 and 1 (unlike the original plot).
 """
 
-fig, ax = plt.subplots(figsize=(7, 7))
-
-p = ax.imshow(numer / denom, extent=[-2, 1, -3 / 2, 3 / 2])
-ax.set_xlabel("x")
-ax.set_ylabel("y")
+fig, ax, p = plot_pixels(numer / denom)
 fig.colorbar(
     p,
     ax=ax,
-    shrink=0.8,
+    shrink=0.75,
     label="fraction of sampled points in Mandelbrot set in each tile",
 )
+
+fig.savefig("sample_fraction.png")
+print("\tFraction of samples points is plotted in `sample_fraction.png`\n")
 
 """
 As an aside, the calculation of Mandelbrot area in each tile is independent, but if you're going to sample them in parallel, you need to have a team of non-overlapping random number generators.
@@ -360,6 +386,9 @@ def compute_parallel(rngs, numer, denom):
 numer = np.zeros((NUM_TILES_1D, NUM_TILES_1D), dtype=np.int64)
 denom = np.zeros((NUM_TILES_1D, NUM_TILES_1D), dtype=np.int64)
 
+print("########################################################")
+print("Compute Mandelbrot area per tile in parallel")
+print("########################################################")
 compute_parallel(rngs, numer, denom)
 
 """
@@ -385,19 +414,17 @@ confidence_interval_high = (
     * height
 )
 
-fig, ax = plt.subplots(figsize=(7, 7))
+fig, ax, p = plot_pixels(confidence_interval_high - confidence_interval_low)
 
-p = ax.imshow(
-    confidence_interval_high - confidence_interval_low, extent=[-2, 1, -3 / 2, 3 / 2]
-)
-ax.set_xlabel("x")
-ax.set_ylabel("y")
 fig.colorbar(
     p,
     ax=ax,
-    shrink=0.8,
+    shrink=0.75,
     label="size of 95% confidence interval (in units of area) of each tile",
 )
+
+fig.savefig("confidence_interval.png")
+print("\tConfidence interval for each tile is plotted in `confidence_interval.png`\n")
 
 
 """
@@ -436,6 +463,11 @@ def wald_uncertainty(numer, denom):
 SAMPLES_IN_BATCH = 100
 
 
+print("########################################################")
+print("Compute Mandelbrot area per tile until target uncertainty is reached")
+print("########################################################")
+
+
 @nb.jit(parallel=True)
 def compute_until(rngs, numer, denom, uncert, uncert_target):
     """Compute area of each tile until uncert_target is reached.
@@ -463,36 +495,36 @@ numer = np.zeros((NUM_TILES_1D, NUM_TILES_1D), dtype=np.int64)
 denom = np.zeros((NUM_TILES_1D, NUM_TILES_1D), dtype=np.int64)
 uncert = np.zeros((NUM_TILES_1D, NUM_TILES_1D), dtype=np.float64)
 
-compute_until(rngs, numer, denom, uncert, 1e-6)
+compute_until(rngs, numer, denom, uncert, 1e-5)
 
 """
 Now we've ensured that all of the tile uncertainties are at the scale of `uncert_target` or below (roughly, since we're using an approximation).
 """
 
-fig, ax = plt.subplots(figsize=(7, 7))
+fig, ax, p = plot_pixels(uncert)
 
-p = ax.imshow(uncert, extent=[-2, 1, -3 / 2, 3 / 2])
-ax.set_xlabel("x")
-ax.set_ylabel("y")
-fig.colorbar(p, ax=ax, shrink=0.8, label="area uncertainty estimate of each tile")
+fig.colorbar(p, ax=ax, shrink=0.75, label="area uncertainty estimate of each tile")
+
+fig.savefig("uncertainty.png")
+print("\tUncertainty per tile is plotted in `uncertainty.png`")
 
 """
 The denominators needed to do this vary considerably from one tile to the next.
 """
 
-fig, ax = plt.subplots(figsize=(7, 7))
+fig, ax, p = plot_pixels(denom)
 
-p = ax.imshow(denom, extent=[-2, 1, -3 / 2, 3 / 2])
-ax.set_xlabel("x")
-ax.set_ylabel("y")
-fig.colorbar(p, ax=ax, shrink=0.8, label="number of points sampled each tile")
+fig.colorbar(p, ax=ax, shrink=0.75, label="number of points sampled each tile")
+
+fig.savefig("samples_per_tile.png")
+print("\tNumber of samples per tile is plotted in `samples_per_tile.png`")
 
 """
 The final result can be derived from the individual numerators and denominators.
 """
 
 final_value = (np.sum((numer / denom)) * width * height).item()
-final_value
+print(f"\tThe total area of all tiles is {final_value}")
 
 
 """
@@ -518,7 +550,7 @@ final_uncertainty = (
     np.sum(confidence_interval_high - confidence_interval_low)
     / np.sqrt(4 * np.sum(denom))
 ).item()
-final_uncertainty
+print(f"\tThe uncertainty on the total area is {final_uncertainty}\n")
 
 
 """
@@ -526,3 +558,6 @@ Your task is to implement this on GPUs and scale it to many computers.
 
 Your result, at the end of this exercise, may be the world's most precise estimate of a fundamental mathematical quantity.
 """
+print("########################################################")
+print("TASK: Implement it on GPUs and break the world record!")
+print("########################################################")
