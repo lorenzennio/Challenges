@@ -7,7 +7,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import numba as nb
-from scipy.stats import beta
 
 from utils import (
     combine_uncertaintes,
