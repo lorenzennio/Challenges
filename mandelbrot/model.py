@@ -80,6 +80,14 @@ sample_mandelbrot_until[(NUM_BLOCKS_1D, NUM_BLOCKS_1D), (32, 32)](
     rng_states, numer, denom, uncertainty, 1e-8
 )
 
+numer = numer.get()
+
+denom = denom.get()
+
+uncertainty = uncertainty.get()
+
+
+
 final_value = (np.sum((numer / denom)) * width * height).item()
 print(f"\tThe total area of all tiles is {final_value}")
 
