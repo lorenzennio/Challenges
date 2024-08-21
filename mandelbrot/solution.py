@@ -1,28 +1,16 @@
 #!/usr/bin/env -S submit -M 2000 -m 2000 -f python -u
 
-# This script is based on a Jupyter notebook provided by Jim Pivarski
-# You can find it on GitHub: https://github.com/ErUM-Data-Hub/Challenges/blob/computing_challenge/computing/challenge.ipynb
-# The markdown cells have been converted to raw comments
-# and some of the LaTeX syntax has been removed for readability
-
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import numba as nb
+import jax
 
 from utils import (
     combine_uncertaintes,
-    plot_pixels,
     confidence_interval,
     wald_uncertainty,
 )
-
-# ignore deprecation warnings from numba for now
-from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
-import warnings
-
-warnings.simplefilter("ignore", category=NumbaDeprecationWarning)
-warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
 @nb.jit
 def is_in_mandelbrot(x, y):
@@ -53,6 +41,27 @@ def count_mandelbrot(rng, num_samples, xmin, width, ymin, height):
         out += is_in_mandelbrot(x, y)
     return out
 
+@nb.jit(parallel=True)
+def compute_until(rngs, numer, denom, uncert, uncert_target):
+    """Compute area of each tile until uncert_target is reached.
+    The uncertainty is calculate with the Wald approximation in each tile.
+    """
+    for i in nb.prange(NUM_TILES_1D):
+        for j in nb.prange(NUM_TILES_1D):
+            rng = rngs[NUM_TILES_1D * i + j]
+
+            uncert[i, j] = np.inf
+
+            # Sample SAMPLES_IN_BATCH more points until uncert_target is reached
+            while uncert[i, j] > uncert_target:
+                denom[i, j] += SAMPLES_IN_BATCH
+                numer[i, j] += count_mandelbrot(
+                    rng, SAMPLES_IN_BATCH, xmin(j), width, ymin(i), height
+                )
+
+                uncert[i, j] = (
+                    wald_uncertainty(numer[i, j], denom[i, j]) * width * height
+                )
 
 """
 Do it inside Knill limits.
@@ -91,38 +100,16 @@ def ymin(i):
     """ymin of tile in row i"""
     return -3 / 2 + height * i
 
-rngs = rng.spawn(NUM_TILES_1D * NUM_TILES_1D)
-
-SAMPLES_IN_BATCH = 100
-
 
 print("########################################################")
 print("Compute Mandelbrot area per tile until target uncertainty is reached")
 print("########################################################")
 
 
-@nb.jit(parallel=True)
-def compute_until(rngs, numer, denom, uncert, uncert_target):
-    """Compute area of each tile until uncert_target is reached.
-    The uncertainty is calculate with the Wald approximation in each tile.
-    """
-    for i in nb.prange(NUM_TILES_1D):
-        for j in nb.prange(NUM_TILES_1D):
-            rng = rngs[NUM_TILES_1D * i + j]
+########################################################
+rngs = rng.spawn(NUM_TILES_1D * NUM_TILES_1D)
 
-            uncert[i, j] = np.inf
-
-            # Sample SAMPLES_IN_BATCH more points until uncert_target is reached
-            while uncert[i, j] > uncert_target:
-                denom[i, j] += SAMPLES_IN_BATCH
-                numer[i, j] += count_mandelbrot(
-                    rng, SAMPLES_IN_BATCH, xmin(j), width, ymin(i), height
-                )
-
-                uncert[i, j] = (
-                    wald_uncertainty(numer[i, j], denom[i, j]) * width * height
-                )
-
+SAMPLES_IN_BATCH = 100
 
 numer = np.zeros((NUM_TILES_1D, NUM_TILES_1D), dtype=np.int64)
 denom = np.zeros((NUM_TILES_1D, NUM_TILES_1D), dtype=np.int64)
@@ -132,12 +119,6 @@ compute_until(rngs, numer, denom, uncert, 1e-5)
 
 final_value = (np.sum((numer / denom)) * width * height).item()
 print(f"\tThe total area of all tiles is {final_value}")
-
-
-"""
-We can use full, high-precision confidence intervals in the final result.
-The implementation of this can be seen in `utils.py`.
-"""
 
 CONFIDENCE_LEVEL = 0.05
 
