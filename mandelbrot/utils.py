@@ -50,7 +50,7 @@ def confidence_interval(confidence_level, numerator, denominator, area):
     return low, high
 
 
-"""
+r"""
 (Disclaimer: It's to complicated to remove the LaTeX code here, put it in here (https://latexeditor.lagrida.com) to display.)
 Wald approximation:
 
@@ -90,3 +90,5 @@ def combine_uncertaintes(
         np.sum(confidence_interval_high - confidence_interval_low)
         / np.sqrt(4 * np.sum(denominator))
     ).item()
+
+    return final_uncertainty

@@ -38,7 +38,7 @@ does not diverge to infinity. That is, the set c for which |z_i| approaches infi
 (Check it out on Wikipedia here: https://en.wikipedia.org/wiki/Mandelbrot_set)
 """
 
-"""
+r"""
 The following function identifies whether a point c = x + y*i is in the Mandelbrot set or not (x and y are real numbers and i = \sqrt{-1}). It uses 32-bit (single precision) floating point to approximate real numbers (`np.complex64` is made of two `np.float32`). 
 The algorithm tracks z_i for two consecutive i, named "tortoise" and "hare" (the hare is ahead of the, check out here tortoise(https://en.wikipedia.org/wiki/The_Tortoise_and_the_Hare) by a factor of 2. This is Floyd's algorithm for detecting cycles in a sequence (including the "cycle" of converging to a point). 
 (check out here https://en.wikipedia.org/wiki/Cycle_detection#Floyd%27s_tortoise_and_hare)
@@ -112,7 +112,7 @@ fig.savefig("pixels.png")
 
 print("\tOutput has been saved in `pixels.png`\n")
 
-"""
+r"""
 The exact area of the Mandelbrot set is not known, mathematically. There is an expression,
 
 $$\mbox{area of Mandelbrot set} = \pi \left( 1 - \sum_{n=1}^\infty n \, {b_n}^2 \right)$$
