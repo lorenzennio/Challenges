@@ -10,7 +10,10 @@ import numba.cuda
 import numba as nb
 from numba.cuda.random import create_xoroshiro128p_states, xoroshiro128p_uniform_float32
 
-from utils import plot_pixels
+from utils import (
+    combine_uncertaintes,
+    confidence_interval,
+)
 
 
 @nb.cuda.jit(device=True)
@@ -76,3 +79,17 @@ uncertainty = cp.zeros((32 * NUM_BLOCKS_1D, 32 * NUM_BLOCKS_1D), dtype=cp.float3
 sample_mandelbrot_until[(NUM_BLOCKS_1D, NUM_BLOCKS_1D), (32, 32)](
     rng_states, numer, denom, uncertainty, 1e-8
 )
+
+final_value = (np.sum((numer / denom)) * width * height).item()
+print(f"\tThe total area of all tiles is {final_value}")
+
+CONFIDENCE_LEVEL = 0.05
+
+confidence_interval_low, confidence_interval_high = confidence_interval(
+    CONFIDENCE_LEVEL, numer, denom, width * height
+)
+
+final_uncertainty = combine_uncertaintes(
+    confidence_interval_low, confidence_interval_high, denom
+)
+print(f"\tThe uncertainty on the total area is {final_uncertainty}\n")
