@@ -44,18 +44,20 @@ def is_in_mandelbrot(x, y):
 
 
 SAMPLES_IN_BATCH = 10
-NUM_BLOCKS_1D = 100
+NUM_BLOCKS_X = 100
+NUM_BLOCKS_Y = 100
 CONFIDENCE_LEVEL = 0.05
 
-width = height = np.float32(3 / (32 * NUM_BLOCKS_1D))  # all cells have the same size
+width = np.float32(3 / (32 * NUM_BLOCKS_X))  # all cells have the same size
+height = np.float32(1.5 / (32 * NUM_BLOCKS_Y))  # all cells have the same size
 
 
 @nb.cuda.jit
 def sample_mandelbrot_until(rng_states, numer, denom, uncertainty, uncertainty_target):
     i, j = nb.cuda.grid(2)
-    rng_idx = (32 * NUM_BLOCKS_1D) * i + j
+    rng_idx = (32 * NUM_BLOCKS_X) * i + j
     xmin = np.float32(-2) + width * j
-    ymin = np.float32(-3 / 2) + height * i
+    ymin = np.float32(0) + height * i
 
     uncertainty[i, j] = np.float32(np.inf)
 
@@ -70,14 +72,14 @@ def sample_mandelbrot_until(rng_states, numer, denom, uncertainty, uncertainty_t
         uncertainty[i, j] = wald_uncertainty(numer[i, j], denom[i, j]) * width * height
 
 
-rng_states = create_xoroshiro128p_states(32**2 * NUM_BLOCKS_1D**2, seed=12345)
+rng_states = create_xoroshiro128p_states(32**2 * NUM_BLOCKS_X*NUM_BLOCKS_Y, seed=12345)
 
-numer = cp.zeros((32 * NUM_BLOCKS_1D, 32 * NUM_BLOCKS_1D), dtype=cp.int32)
-denom = cp.zeros((32 * NUM_BLOCKS_1D, 32 * NUM_BLOCKS_1D), dtype=cp.int32)
-uncertainty = cp.zeros((32 * NUM_BLOCKS_1D, 32 * NUM_BLOCKS_1D), dtype=cp.float32)
+numer = cp.zeros((32 * NUM_BLOCKS_X, 32 * NUM_BLOCKS_Y), dtype=cp.int32)
+denom = cp.zeros((32 * NUM_BLOCKS_X, 32 * NUM_BLOCKS_Y), dtype=cp.int32)
+uncertainty = cp.zeros((32 * NUM_BLOCKS_X, 32 * NUM_BLOCKS_Y), dtype=cp.float32)
 
-sample_mandelbrot_until[(NUM_BLOCKS_1D, NUM_BLOCKS_1D), (32, 32)](
-    rng_states, numer, denom, uncertainty, 1e-8
+sample_mandelbrot_until[(NUM_BLOCKS_X, NUM_BLOCKS_Y), (32, 32)](
+    rng_states, numer, denom, uncertainty, 1e-5
 )
 
 numer = numer.get()
@@ -88,7 +90,7 @@ uncertainty = uncertainty.get()
 
 
 
-final_value = (np.sum((numer / denom)) * width * height).item()
+final_value = 2*(np.sum((numer / denom)) * width * height).item()
 print(f"\tThe total area of all tiles is {final_value}")
 
 CONFIDENCE_LEVEL = 0.05
@@ -97,7 +99,7 @@ confidence_interval_low, confidence_interval_high = confidence_interval(
     CONFIDENCE_LEVEL, numer, denom, width * height
 )
 
-final_uncertainty = combine_uncertaintes(
+final_uncertainty = 2*combine_uncertaintes(
     confidence_interval_low, confidence_interval_high, denom
 )
 print(f"\tThe uncertainty on the total area is {final_uncertainty}\n")
